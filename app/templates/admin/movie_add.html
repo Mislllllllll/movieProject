@@ -126,7 +126,31 @@
         <!--内容-->
 {% endblock %}
 {% block  js %}
+<script type="text/javascript">
+    jwplayer("moviecontainer").setup({
+        flashplayer: "../static/jwplayer/jwplayer.flash.swf",
+        playlist: [{
+            file: "../static/video/htpy.mp4",
+            title: "环太平洋"
+        }],
+        modes: [{
+            type: "html5"
+        }, {
+            type: "flash",
+            src: "../static/jwplayer/jwplayer.flash.swf"
+        }, {
+            type: "download"
+        }],
+        skin: {
+            name: "vapor"
+        },
+        "playlist.position": "left",
+        "playlist.size": 200,
+        height: 250,
+        width: 387,
+    });
 
+</script>
     <script>
     $(document).ready(function(){
         $('#input_release_time').datepicker({
