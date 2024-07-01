@@ -1,8 +1,8 @@
 #coding:utf-8
 from . import home
 from flask import render_template,redirect,url_for,flash,session,request
-from app.home.forms import RegistForm,LoginForm,UserDetailForm,PwdForm
-from app.models import User,Userlog,Preview,Tag,Movie
+from app.home.forms import RegistForm,LoginForm,UserDetailForm,PwdForm,CommentForm
+from app.models import User,Userlog,Preview,Tag,Movie,Comment,Moviecol
 import uuid
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
@@ -131,10 +131,22 @@ def pwd():
     return render_template("home/pwd.html",form=form)
 
 
-@home.route("/comments/")
+@home.route("/comments/<int:page>/")
 @user_login_req
-def comments():
-    return render_template("home/comments.html")
+def comments(page=None):
+    if page is None:
+        page = 1
+    page_data = Comment.query.join(
+        Movie
+    ).join(
+        User
+    ).filter(
+        Movie.id == Comment.movie_id,
+        User.id == session["user_id"]
+    ).order_by(
+        Comment.addtime.desc()
+    ).paginate(page=page, per_page=10)
+    return render_template("home/comments.html",page_data=page_data)
 
 @home.route("/loginlog/<int:page>/",methods=["GET"])
 @user_login_req
@@ -152,10 +164,46 @@ def loginlog(page=None):
 
     return render_template("home/loginlog.html")
 
-@home.route("/moviecol/")
+#添加电影收藏
+@home.route("/moviecol/add/",methods=["GET"])
 @user_login_req
-def moviecol():
-    return render_template("home/moviecol.html")
+def moviecol_add():
+    uid=request.args.get("uid","")
+    mid = request.args.get("mid", "")
+    moviecol=Moviecol.query.filter_by(
+        user_id=int(uid),
+        movie_id=int(mid)
+    ).count()
+    if moviecol==1:
+        data=dict(ok=0)
+    if moviecol==0:
+        moviecol=Moviecol(
+            user_id=int(uid),
+            movie_id=int(mid)
+        )
+        db.session.add(moviecol)
+        db.session.commit()
+        data=dict(ok=1)
+    import json
+    return json.dumps(data)
+#电影收藏
+@home.route("/moviecol/<int:page>/")
+@user_login_req
+def moviecol(page=None):
+    if page is None:
+        page=1
+    page_data=Moviecol.query.join(
+        Movie
+    ).join(
+        User
+    ).filter(
+        Movie.id==Moviecol.movie_id,
+        User.id==session["user_id"]
+    ).order_by(
+        Moviecol.addtime.desc()
+    ).paginate(page=page,per_page=10)
+
+    return render_template("home/moviecol.html",page_data=page_data)
 
 
 @home.route("/<int:page>/",methods=["GET"])
@@ -222,12 +270,105 @@ def animation():
     return render_template("home/animation.html",data=data)
 
 
-@home.route("/search/")
-def search():
-    return render_template("home/search.html")
+@home.route("/search/<int:page>/")
+def search(page=None):
+    if page is None:
+        page=1
+    key=request.args.get("key","")
+    movie_count=Movie.query.filter(
+        Movie.title.ilike('%'+key+'%')
+    ).count()
+    page_data=Movie.query.filter(
+        Movie.title.ilike('%'+key+'%')
+
+    ).order_by(
+        Movie.addtime.desc()
+
+    ).paginate(page=page,per_page=10)
+    page_data.key=key
+    return render_template("home/search.html",movie_count=movie_count,key=key,page_data=page_data)
 
 
-@home.route("/play/")
-def play():
-    return render_template("home/play.html")
+@home.route("/play/<int:id>/<int:page>/",methods=["GET","POST"])
+def play(id=None,page=None):
+    movie=Movie.query.join(
+        Tag
+    ).filter(
+        Tag.id==Movie.tag_id,
+        Movie.id==int(id)
+    ).first_or_404()
+    if page is None:
+        page=1
+    page_data=Comment.query.join(
+        Movie
+    ).join(
+        User
+    ).filter(
+        Movie.id==movie.id,
+        User.id==Comment.user_id
+    ).order_by(
+        Comment.addtime.desc()
+    ).paginate(page=page,per_page=10)
+    movie.playnum = movie.playnum + 1
 
+    form=CommentForm()
+    if "user" in session and form.validate_on_submit():
+        data=form.data
+        comment=Comment(
+            content=data["content"],
+            movie_id=movie.id,
+            user_id=session["user_id"]
+
+        )
+        db.session.add(comment)
+        db.session.commit()
+        movie.commentnum = movie.commentnum + 1
+        db.session.add(movie)
+        db.session.commit()
+        flash("添加评论成功","ok")
+        return redirect(url_for('home.play',id=movie.id,page=1))
+    db.session.add(movie)
+    db.session.commit()
+    return render_template("home/play.html",movie=movie,form=form,page_data=page_data)
+
+@home.route("/video/<int:id>/<int:page>/",methods=["GET","POST"])
+def video(id=None,page=None):
+    movie=Movie.query.join(
+        Tag
+    ).filter(
+        Tag.id==Movie.tag_id,
+        Movie.id==int(id)
+    ).first_or_404()
+    if page is None:
+        page=1
+    page_data=Comment.query.join(
+        Movie
+    ).join(
+        User
+    ).filter(
+        Movie.id==movie.id,
+        User.id==Comment.user_id
+    ).order_by(
+        Comment.addtime.desc()
+    ).paginate(page=page,per_page=10)
+    movie.playnum = movie.playnum + 1
+
+    form=CommentForm()
+    if "user" in session and form.validate_on_submit():
+        data=form.data
+        comment=Comment(
+            content=data["content"],
+            movie_id=movie.id,
+            user_id=session["user_id"]
+
+        )
+        db.session.add(comment)
+        db.session.commit()
+        movie.commentnum = movie.commentnum + 1
+        db.session.add(movie)
+        db.session.commit()
+        flash("添加评论成功","ok")
+        return redirect(url_for('home.video',id=movie.id,page=1))
+    db.session.add(movie)
+    db.session.commit()
+    return render_template("home/video.html",movie=movie,form=form,page_data=page_data)

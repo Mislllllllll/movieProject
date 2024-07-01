@@ -48,8 +48,13 @@
                                 <tr>
                                     <td class="td_bd">头像：</td>
                                     <td>
+                                        {%  if v.face %}
                                         <img src="{{ url_for('static',filename='uploads/users/'+user.face) }}" style="width: 50px;" class="img-responsive" alt="">
-                                    </td>
+                                   {% else %}
+                                          <img data-src="holder.js/100*100" style="width: 50px;" class="img-responsive" alt="">
+
+                                        {% endif %}
+                                         </td>
                                 </tr>
                                 <tr>
                                     <td class="td_bd">注册时间：</td>
